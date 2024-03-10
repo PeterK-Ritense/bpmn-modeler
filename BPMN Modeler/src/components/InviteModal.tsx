@@ -1,5 +1,6 @@
 import React, {useState} from "react";
 import {getDatabase, push, ref, set} from "firebase/database";
+import toastr from 'toastr';
 
 const InviteModal = ({ isOpen, onClose, projectId, userId }) => {
     const [inviteEmail, setInviteEmail] = useState('');
@@ -16,11 +17,11 @@ const InviteModal = ({ isOpen, onClose, projectId, userId }) => {
             status: 'Pending',
             sentAt: new Date().toISOString()
         }).then(() => {
-            console.log('Invitation sent');
+            toastr.success('Invitation sent');
             onClose();
             setInviteEmail(''); // Reset the email input field
         }).catch(error => {
-            console.error('Error sending invitation:', error);
+            toastr.error('Error sending invitation:', error);
         });
     };
 

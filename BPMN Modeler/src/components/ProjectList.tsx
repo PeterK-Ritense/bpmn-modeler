@@ -4,17 +4,23 @@ import InviteModal from './InviteModal.tsx'
 import AddBPMNModelModal from './AddBPMNModelModal.tsx';
 import AddProjectModal from "./AddProjectModal.tsx";
 import ConfirmationModal from "./ConfirmationModal.tsx";
+import toastr from 'toastr';
 import { Button } from 'carbon-components-react';
+import RenameProjectModal from "./RenameProjectModal.tsx";
+import RenameModelModal from "./RenameModelModal.tsx";
 
-const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProject }) => {
+const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHome, onOpenProject }) => {
     const [projects, setProjects] = useState([]);
     const [invitations, setInvitations] = useState([]);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [isAddModelModalOpen, setIsAddModelModalOpen] = useState(false);
     const [isAddDMNModalOpen, setIsAddDMNModalOpen] = useState(false);
     const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
+    const [isRenameProjectModalOpen, setIsRenameProjectModalOpen] = useState(false);
+    const [isRenameModelModalOpen, setIsRenameModelModalOpen] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState(null);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [selectedModel, setSelectedModel] = useState({});
     const [confirmModalContent, setConfirmModalContent] = useState({ message: '', onConfirm: () => {} });
 
     // Fetch projects when component mounts or userId changes
@@ -42,13 +48,25 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
                     [user.uid]: 'owner' // Assigning the role of 'owner' to the user who created the project
                 }
             }).then(() => {
-                console.log('New project added successfully');
+                toastr.success('New project added successfully');
                 fetchUserProjects(user.uid);
             }).catch((error) => {
-                console.error('Error adding new project: ', error);
+                toastr.error('Error adding new project: ', error);
             });
         }
     };
+
+    const handleRenameProject = (newProjectName) => {
+        const db = getDatabase();
+        const projectRef = ref(db, `projects/${currentProject.id}`);
+
+        update(projectRef, { name: newProjectName })
+            .then(() => {
+                fetchUserProjects(user.uid);
+                toastr.success("Project name updated successfully");
+            })
+            .catch((error) => toastr.error("Error updating project name: ", error));
+    }
 
     const handleAddBPMNModel = (projectId, newModelName) => {
         if (newModelName) {
@@ -80,10 +98,10 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }).then(() => {
-                console.log('New BPMN model added successfully');
+                toastr.success('New BPMN model added successfully');
                 fetchUserProjects(user.uid);
             }).catch((error) => {
-                console.error('Error adding new BPMN model: ', error);
+                toastr.error('Error adding new BPMN model: ', error);
             });
         }
     };
@@ -125,10 +143,53 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }).then(() => {
-                console.log('New BPMN model added successfully');
+                toastr.success('New DMN model added successfully');
                 fetchUserProjects(user.uid);
             }).catch((error) => {
-                console.error('Error adding new BPMN model: ', error);
+                toastr.error('Error adding new BPMN model: ', error);
+            });
+        }
+    };
+
+    const onRenameModel = (model) => {
+        setSelectedModel(model);
+        setIsRenameModelModalOpen(true);
+    }
+    
+    const handleRenameModel = (newModelName) => {
+        const db = getDatabase();
+        const modelRef = ref(db, `bpmnModels/${selectedModel.id}`);
+
+        update(modelRef, { name: newModelName })
+            .then(() => {
+                fetchUserProjects(user.uid);
+                toastr.success("Model name updated successfully");
+            })
+            .catch((error) => toastr.error("Error updating model name: ", error));
+    }
+
+    const handleDuplicateModel = (model) => {
+        if (model) {
+            const db = getDatabase();
+            const bpmnModelsRef = ref(db, 'bpmnModels');
+
+            // Generate a new model ID
+            const newModelRef = push(bpmnModelsRef);
+
+            // Set the BPMN model data
+            set(newModelRef, {
+                projectId: model.projectId,
+                ownerId: user.uid,
+                name: `${model.name} Copy`,
+                type: model.type,
+                xmlData: model.xmlData,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }).then(() => {
+                toastr.success('Model duplicated successfully');
+                fetchUserProjects(user.uid);
+            }).catch((error) => {
+                toastr.error('Error duplicating model: ', error);
             });
         }
     };
@@ -187,7 +248,6 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
 
             setProjects(userProjects);
         } else {
-            console.log('No projects available');
             return [];
         }
     };
@@ -223,11 +283,9 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
                 });
 
                 setInvitations(invitationsList);
-            } else {
-                console.log('No invitations found');
             }
         } catch (error) {
-            console.error('Error fetching invitations:', error);
+            toastr.error('Error fetching invitations:', error);
         }
     }
 
@@ -241,11 +299,11 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
         const modelRef = ref(db, `bpmnModels/${modelId}`);
 
         remove(modelRef).then(() => {
-            console.log('BPMN model deleted successfully');
+            toastr.success('Model deleted successfully');
             fetchUserProjects(user.uid);
             setIsConfirmModalOpen(false);
         }).catch((error) => {
-            console.error('Error deleting BPMN model: ', error);
+            toastr.error('Error deleting model: ', error);
         });
     }
 
@@ -254,11 +312,29 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
         const modelRef = ref(db, `projects/${projectId}`);
 
         remove(modelRef).then(() => {
-            console.log('Project deleted successfully');
+            deleteModelsAndInvites(projectId);
+            toastr.success('Project deleted successfully');
             fetchUserProjects(user.uid);
             setIsConfirmModalOpen(false);
+            onNavigateHome();
         }).catch((error) => {
-            console.error('Error deleting project: ', error);
+            toastr.error('Error deleting project: ', error);
+        });
+    }
+
+    async function deleteModelsAndInvites(projectId) {
+        const db = getDatabase();
+
+        const modelsQuery = query(ref(db, 'bpmnModels'), orderByChild('projectId'), equalTo(projectId));
+        const modelsSnapshot = await get(modelsQuery);
+        modelsSnapshot.forEach((childSnapshot) => {
+            remove(ref(db, `bpmnModels/${childSnapshot.key}`));
+        });
+
+        const invitesQuery = query(ref(db, 'invitations'), orderByChild('projectId'), equalTo(projectId));
+        const invitesSnapshot = await get(invitesQuery);
+        invitesSnapshot.forEach((childSnapshot) => {
+            remove(ref(db, `invitations/${childSnapshot.key}`));
         });
     }
 
@@ -273,12 +349,12 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
         updates['/projects/' + projectId + '/members/' + userId] = 'editor';
 
         update(ref(db), updates).then(() => {
-            console.log('Invitation accepted and user added to project');
+            toastr.success('Invitation accepted and user added to project');
             setIsInviteModalOpen(false);
             fetchInvites();
             fetchUserProjects(userId);
         }).catch((error) => {
-            console.error('Error accepting invitation:', error);
+            toastr.error('Error accepting invitation:', error);
         });
     };
 
@@ -293,10 +369,10 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
         updates['/invitations/' + invitationId + '/status'] = 'Declined';
 
         update(ref(db), updates).then(() => {
-            console.log('Invitation removed');
+            toastr.success('Invitation successfully declined');
             fetchInvites();
         }).catch((error) => {
-            console.error('Error removing invitation:', error);
+            toastr.error('Error removing invitation:', error);
         });
     };
 
@@ -305,17 +381,17 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
         const memberRef = ref(db, `projects/${projectId}/members/${memberId}`);
 
         remove(memberRef).then(() => {
-            console.log(`Member ${memberId} removed from project ${projectId}`);
-            fetchUserProjects(user.uid); // Refetch projects to update the UI
-            setIsConfirmModalOpen(false); // Close the confirmation modal
+            fetchUserProjects(user.uid);
+            setIsConfirmModalOpen(false);
+            toastr.success(`Member removed from project successfully`);
         }).catch((error) => {
-            console.error('Error removing member:', error);
+            toastr.error('Error removing member:', error);
         });
     };
 
     function convertDateString(inputDateString: string): string {
-        const datePart = inputDateString.split('T')[0]; // Gets the date part
-        const timePart = inputDateString.split('T')[1].split(':'); // Splits the time part into [hour, minute, second]
+        const datePart = inputDateString.split('T')[0];
+        const timePart = inputDateString.split('T')[1].split(':');
         const outputDateString = `${datePart} ${timePart[0]}:${timePart[1]}`;
 
         return outputDateString;
@@ -428,10 +504,13 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
                             <h3>{project.name}</h3>
                             <div>
                                 {project.ownerId === user.uid && (
-                                    <button className="button-danger" onClick={() => openConfirmModal(
-                                        `Are you sure you want to delete project '${project.name}'?`,
-                                        () => onDeleteProject(project.id)
-                                    )}>Delete Project</button>
+                                    <div>
+                                        <button onClick={() => setIsRenameProjectModalOpen(true)}>Rename Project</button>
+                                        <button className="button-danger" onClick={() => openConfirmModal(
+                                            `Are you sure you want to delete project '${project.name}'?`,
+                                            () => onDeleteProject(project.id)
+                                        )}>Delete Project</button>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -472,10 +551,19 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
                                         </div>
                                         <div className="projects-model-buttons">
                                             {(model.ownerId === user.uid || project.ownerId === user.uid) && (
-                                                <button className="button-danger" onClick={() => openConfirmModal(
-                                                    `Are you sure you want to delete model '${model.name}'?`,
-                                                    () => onDeleteModel(model.id)
-                                                )}>Delete model</button>
+                                                <div>
+                                                    <button onClick={() => handleDuplicateModel(model)}>
+                                                        Duplicate Model
+                                                    </button>
+                                                    <button onClick={() => onRenameModel(model)}>
+                                                        Rename Model
+                                                    </button>
+                                                    <button className="button-danger" onClick={() => openConfirmModal(
+                                                        `Are you sure you want to delete model '${model.name}'?`,
+                                                        () => onDeleteModel(model.id)
+                                                    )}>Delete model
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -524,6 +612,13 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
                 onAddProject={handleAddProject}
             />
 
+            <RenameProjectModal
+                isOpen={isRenameProjectModalOpen}
+                onClose={() => setIsRenameProjectModalOpen(false)}
+                onRenameProject={handleRenameProject}
+                currentName={currentProject.name}
+            />
+
             <AddBPMNModelModal
                 isOpen={isAddModelModalOpen}
                 onClose={() => setIsAddModelModalOpen(false)}
@@ -536,6 +631,13 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onOpenProjec
                 onClose={() => setIsAddDMNModalOpen(false)}
                 onAddModel={handleAddDMNModel}
                 projectId={selectedProjectId}
+            />
+
+            <RenameModelModal
+                isOpen={isRenameModelModalOpen}
+                onClose={() => setIsRenameModelModalOpen(false)}
+                onRenameModel={handleRenameModel}
+                currentName={selectedModel.name}
             />
 
             <InviteModal

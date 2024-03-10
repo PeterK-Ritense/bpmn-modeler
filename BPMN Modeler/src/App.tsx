@@ -7,6 +7,7 @@ import ProjectList from "./components/ProjectList.tsx";
 import SaveModal from "./components/SaveModal.tsx";
 import LogoutModal from "./components/LogoutModal.tsx";
 import DMNModelerComponent from "./components/DmnModeler.tsx";
+import toastr from 'toastr';
 
 function App() {
     const [user, setUser] = useState(null);
@@ -17,6 +18,24 @@ function App() {
     const [viewPosition, setViewPosition] = useState(null);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+
+    toastr.options = {
+        closeButton: false,
+        debug: false,
+        newestOnTop: false,
+        progressBar: false,
+        positionClass: 'toast-bottom-full-width',
+        preventDuplicates: false,
+        onclick: null,
+        showDuration: '200',
+        hideDuration: '600',
+        timeOut: '2500',
+        extendedTimeOut: '1000',
+        showEasing: 'swing',
+        hideEasing: 'linear',
+        showMethod: 'fadeIn',
+        hideMethod: 'fadeOut',
+    };
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -131,6 +150,11 @@ function App() {
         setIsLogoutModalOpen(false);
     }
 
+    const handleNavigateHome = () => {
+        setProject({});
+        setViewMode('ALL_PROJECTS');
+    }
+
     return (
       <div className="App">
           {model && <SaveModal
@@ -187,7 +211,7 @@ function App() {
               </button>}
           {viewMode === 'BPMN' && user && <BPMNModelerComponent xml={model.xmlData} viewPosition={viewPosition} onModelChange={handleModelChange} onViewPositionChange={handleViewPositionChange}/>}
           {viewMode === 'DMN' && user && <DMNModelerComponent xml={model.xmlData} viewPosition={viewPosition} onDMNChange={handleModelChange} onViewPositionChange={handleViewPositionChange}/>}
-          {(viewMode !== 'BPMN' && viewMode !== 'DMN') && user && <ProjectList user={user} viewMode={viewMode} currentProject={project} onOpenProject={handleOpenProject} onOpenModel={handleOpenModel}/>}
+          {(viewMode !== 'BPMN' && viewMode !== 'DMN') && user && <ProjectList user={user} viewMode={viewMode} currentProject={project} onOpenProject={handleOpenProject} onNavigateHome={handleNavigateHome} onOpenModel={handleOpenModel}/>}
           {!user && <div className="welcome-wrapper">
               <div className="welcome-title">
                   Welcome to the BPMN Modeler!
