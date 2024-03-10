@@ -40,6 +40,7 @@ export const signInWithGoogle = async () => {
                     ...snapshot.val(),
                     email: user.email,
                     displayName: user.displayName,
+                    imageUrl: user.photoURL,
                     lastLogin: new Date().toISOString()
                 });
             } else {
@@ -48,6 +49,7 @@ export const signInWithGoogle = async () => {
                 set(userRef, {
                     email: user.email,
                     displayName: user.displayName,
+                    imageUrl: user.photoURL,
                     createdAt: new Date().toISOString()
                 });
             }
@@ -74,6 +76,23 @@ export const saveBPMNModel = (model) => {
     const db = getDatabase();
     set(ref(db, `bpmnModels/${model.id}`), {
         name: model.name,
+        type: 'bpmn',
+        ownerId: model.ownerId,
+        projectId: model.projectId,
+        xmlData: model.xmlData,
+        updatedAt: new Date().toISOString()
+    }).then(() => {
+        console.log('BPMN model saved successfully.');
+    }).catch((error) => {
+        console.error('Error saving BPMN model: ', error);
+    });
+};
+
+export const saveDMNodel = (model) => {
+    const db = getDatabase();
+    set(ref(db, `bpmnModels/${model.id}`), {
+        name: model.name,
+        type: 'dmn',
         ownerId: model.ownerId,
         projectId: model.projectId,
         xmlData: model.xmlData,

@@ -15,7 +15,7 @@ const AddBPMNModelModal = ({ isOpen, onClose, onAddModel, projectId }) => {
         <div className="modal">
             <div className="modal-window">
                 <div className="modal-title">
-                    Add BPMN model
+                    Add model
                     <button className="modal-close button-danger" onClick={onClose}>Close</button>
                 </div>
                 <div className="modal-content">
@@ -23,9 +23,9 @@ const AddBPMNModelModal = ({ isOpen, onClose, onAddModel, projectId }) => {
                         type="text"
                         value={newModelName}
                         onChange={(e) => setNewModelName(e.target.value)}
-                        placeholder="New BPMN Model Name"
+                        placeholder="New model Name"
                     />
-                    <button onClick={handleAddModel}>Add BPMN Model</button>
+                    <button onClick={handleAddModel}>Add</button>
                 </div>
             </div>
         </div>

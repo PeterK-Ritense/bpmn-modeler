@@ -14,6 +14,7 @@ const BPMNModelerComponent = ({ xml, viewPosition, onModelChange, onViewPosition
                 bindTo: window,
             },
         });
+        console.log('modeler: ', modeler);
 
         modeler.importXML(xml).then(() => {
             if (viewPosition) {
