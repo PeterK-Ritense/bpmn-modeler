@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect, ChangeEvent, useRef} from 'react';
 import { get, getDatabase, ref, push, set, remove, query, orderByChild, equalTo, update } from "firebase/database";
 import InviteModal from './InviteModal.tsx'
 import AddBPMNModelModal from './AddBPMNModelModal.tsx';
 import AddProjectModal from "./AddProjectModal.tsx";
 import ConfirmationModal from "./ConfirmationModal.tsx";
 import toastr from 'toastr';
-import { Button } from 'carbon-components-react';
 import RenameProjectModal from "./RenameProjectModal.tsx";
 import RenameModelModal from "./RenameModelModal.tsx";
 
@@ -22,6 +21,8 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [selectedModel, setSelectedModel] = useState({});
     const [confirmModalContent, setConfirmModalContent] = useState({ message: '', onConfirm: () => {} });
+
+    const fileInputRef = useRef(null);
 
     // Fetch projects when component mounts or userId changes
     useEffect(() => {
@@ -194,10 +195,131 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
         }
     };
 
+    const handleFileChange = (event: ChangeEvent<HTMLInputElement>, projectId: string) => {
+        const file = event.target.files?.[0];
+        console.log('file: ', file);
+
+        const reader = new FileReader();
+        reader.onload = (e: ProgressEvent<FileReader>) => {
+            const text = e.target?.result;
+            if (file.name.endsWith('.bpmn')) {
+                handleUploadBPMNModel(projectId, text as string);
+            } else if (file.name.endsWith('.dmn')) {
+                handleUploadDMNModel(projectId, text as string);
+            }
+            console.log('xml: ', text as string);
+        };
+        reader.readAsText(file);
+    };
+
+    const handleUploadBPMNModel = (projectId: string, xml: string) => {
+        if (xml) {
+            const db = getDatabase();
+            const bpmnModelsRef = ref(db, 'bpmnModels');
+
+            // Generate a new model ID
+            const newModelRef = push(bpmnModelsRef);
+
+            // Set the BPMN model data
+            set(newModelRef, {
+                projectId: projectId,
+                ownerId: user.uid,
+                name: extractBpmnProcessName(xml),
+                type: 'bpmn',
+                xmlData: xml,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }).then(() => {
+                toastr.success('New BPMN model added successfully');
+                fileInputRef.current.value = '';
+                fetchUserProjects(user.uid);
+            }).catch((error) => {
+                toastr.error('Error adding new BPMN model: ', error);
+            });
+        }
+    };
+
+    const handleUploadDMNModel = (projectId: string, xml: string) => {
+        if (xml) {
+            const db = getDatabase();
+            const bpmnModelsRef = ref(db, 'bpmnModels');
+
+            // Generate a new model ID
+            const newModelRef = push(bpmnModelsRef);
+
+            // Set the DMN model data
+            set(newModelRef, {
+                projectId: projectId,
+                ownerId: user.uid,
+                name: extractDmnTableName(xml),
+                type: 'dmn',
+                xmlData: xml,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }).then(() => {
+                toastr.success('New BPMN model added successfully');
+                fileInputRef.current.value = '';
+                fetchUserProjects(user.uid);
+            }).catch((error) => {
+                toastr.error('Error adding new BPMN model: ', error);
+            });
+        }
+    };
+
+    const handleUploadButtonClick = () => {
+        fileInputRef.current.click();
+    };
+
+    function extractBpmnProcessName(xmlString: string): string | null {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, "application/xml");
+        const processElements = Array.from(xmlDoc.getElementsByTagName("bpmn:process"));
+
+        if (processElements.length > 0) {
+            return processElements[0].getAttribute("name");
+        } else {
+            console.error("No BPMN process element found.");
+            return null;
+        }
+    }
+
+    function extractDmnTableName(xmlString: string): string | null {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, "application/xml");
+        const processElements = Array.from(xmlDoc.getElementsByTagName("decision"));
+
+        if (processElements.length > 0) {
+            return processElements[0].getAttribute("name");
+        } else {
+            console.error("No DMN table element found.");
+            return null;
+        }
+    }
+
+    const downloadXmlAsBpmn = (model) => {
+        const element = document.createElement("a");
+        const file = new Blob([model.xmlData], { type: 'text/xml' });
+        element.href = URL.createObjectURL(file);
+        element.download = model.type === 'bpmn' ? toKebabCase(extractBpmnProcessName(model.xmlData)) + '.bpmn' : toKebabCase(extractDmnTableName(model.xmlData)) + '.dmn';
+        document.body.appendChild(element); // Required for this to work in FireFox
+        element.click();
+        document.body.removeChild(element);
+    };
+
     function camelize(str) {
         return str.replace(/(?:^\w|[A-Z]|\b\w)/g, function(word, index) {
             return index === 0 ? word.toLowerCase() : word.toUpperCase();
         }).replace(/\s+/g, '');
+    }
+
+    function toKebabCase(str) {
+        return str
+            .toLowerCase()
+            .replace(/-/g, ' ')
+            .replace(/\s+/g, ' ')
+            .replace(/([a-z])([A-Z])/g, '$1 $2')
+            .replace(/[\s_]+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
     }
 
     const fetchUserProjects = async (userId) => {
@@ -392,9 +514,8 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
     function convertDateString(inputDateString: string): string {
         const datePart = inputDateString.split('T')[0];
         const timePart = inputDateString.split('T')[1].split(':');
-        const outputDateString = `${datePart} ${timePart[0]}:${timePart[1]}`;
 
-        return outputDateString;
+        return `${datePart} ${timePart[0]}:${timePart[1]}`;
     }
 
     const getExtraMembersAsString = (members) => {
@@ -459,6 +580,7 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
                                     ? project.members.map((member) => (
                                         <div key={project.id + member.id} className="projects-member-small">
                                             <div className="projects-members-avatar"><img src={member.imageUrl}
+                                                                                          alt="user-avatar"
                                                                                           title={`${member.displayName} (${member.role})`}/>
                                             </div>
                                         </div>
@@ -472,6 +594,7 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
                                         index < 4 ? (
                                             <div key={project.id + member.id} className="projects-member-small">
                                                 <div className="projects-members-avatar"><img src={member.imageUrl}
+                                                                                              alt="user-avatar"
                                                                                               title={`${member.displayName} (${member.role})`}/>
                                                 </div>
                                             </div>
@@ -519,15 +642,18 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
                                 <div className="projects-models-title">
                                     <h4>Models</h4>
                                     <div className="projects-models-buttons">
+                                        <input style={{display: 'none'}} type="file" accept=".bpmn, .dmn" ref={fileInputRef}
+                                               onChange={(event) => handleFileChange(event, project.id)}/>
+                                        <button onClick={handleUploadButtonClick}>Import</button>
                                         <button onClick={() => {
                                             setIsAddModelModalOpen(true);
                                             setSelectedProjectId(project.id);
-                                        }}>Add BPMN model
+                                        }}>Add BPMN
                                         </button>
                                         <button onClick={() => {
                                             setIsAddDMNModalOpen(true);
                                             setSelectedProjectId(project.id);
-                                        }}>Add DMN model
+                                        }}>Add DMN
                                         </button>
                                     </div>
                                 </div>
@@ -535,8 +661,8 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
                                     Add a new model and start modeling!
                                 </div>}
                                 {project.models.map((model) => {
-                                    return <div className="projects-model" key={model.id}>
-                                        <div onClick={() => onOpenModel(project, model)}
+                                    return <div className="projects-model" key={model.id} onClick={() => onOpenModel(project, model)}>
+                                        <div
                                              className="projects-model-title">
                                             {model.name}
                                         </div>
@@ -550,28 +676,45 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
                                             {convertDateString(model.updatedAt)}
                                         </div>
                                         <div className="projects-model-buttons">
-                                            {(model.ownerId === user.uid || project.ownerId === user.uid) && (
-                                                <div>
-                                                    <button onClick={() => handleDuplicateModel(model)}>
-                                                        Duplicate Model
-                                                    </button>
-                                                    <button onClick={() => onRenameModel(model)}>
-                                                        Rename Model
-                                                    </button>
-                                                    <button className="button-danger" onClick={() => openConfirmModal(
-                                                        `Are you sure you want to delete model '${model.name}'?`,
-                                                        () => onDeleteModel(model.id)
-                                                    )}>Delete model
-                                                    </button>
-                                                </div>
-                                            )}
+                                            <div>
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    downloadXmlAsBpmn(model);
+                                                }}>
+                                                    Download
+                                                </button>
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDuplicateModel(model);
+                                                }}>
+                                                    Duplicate
+                                                </button>
+                                                {(model.ownerId === user.uid || project.ownerId === user.uid) && (
+                                                    <>
+                                                        <button onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onRenameModel(model);
+                                                        }}>
+                                                            Rename
+                                                        </button>
+                                                        <button className="button-danger"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openConfirmModal(
+                                                                    `Are you sure you want to delete model '${model.name}'?`,
+                                                                    () => onDeleteModel(model.id)
+                                                                    )
+                                                                }}>Delete
+                                                        </button>
+                                                    </>)}
+                                            </div>
                                         </div>
                                     </div>
                                 })}
-                            </div>
-                            <div className="projects-overview-members">
+                                </div>
+                                    <div className="projects-overview-members">
                                 <div className="projects-members-title">
-                                <h4>Members</h4>
+                                    <h4>Members</h4>
                                     <button onClick={() => {
                                         setIsInviteModalOpen(true);
                                         setSelectedProjectId(project.id);
@@ -580,7 +723,7 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
                                 </div>
                                 {project.members.map((member) => (
                                     <div key={project.id + member.id} className="projects-members" title={`${member.displayName} (${member.role}) ${member.email}`}>
-                                        <div className="projects-members-avatar"><img src={member.imageUrl}/>
+                                        <div className="projects-members-avatar"><img src={member.imageUrl} alt="user-avatar"/>
                                         </div>
                                         <div className="projects-members-name">{member.displayName}</div>
                                         <div className="projects-members-role">{member.role}</div>

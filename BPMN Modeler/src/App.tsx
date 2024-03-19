@@ -43,6 +43,7 @@ function App() {
                 // User is signed in, see docs for a list of available properties
                 // https://firebase.google.com/docs/reference/js/firebase.User
                 setUser(user);
+                setViewMode('ALL_PROJECTS');
             } else {
                 // User is signed out
                 setUser(null);
@@ -174,9 +175,9 @@ function App() {
                   BPMN Modeler
               </div>
               <div className="header-nav">
-                  <div className="nav-projects-folder" onClick={onProjectsFolderClick}>
+                  {user && <div className="nav-projects-folder" onClick={onProjectsFolderClick}>
                       My Projects
-                  </div>
+                  </div>}
                   {project.name && <div>
                       &#8594;
                   </div>}
@@ -221,7 +222,7 @@ function App() {
               </div>
           </div>}
           {(viewMode !== 'BPMN' && viewMode !== 'DMN') && <div className="footer">
-              By <a href="https://www.peterkoenen.nl" target="peterkoenen.nl">Peter Koenen</a>
+              Version: 0.1.3 - powered by <a href="https://www.valtimo.nl" target="valtimo">Valtimo</a>
           </div>}
       </div>
     )
