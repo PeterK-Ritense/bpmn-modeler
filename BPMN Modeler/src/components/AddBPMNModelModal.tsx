@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import {Modal, TextInput} from "@carbon/react";
 
 const AddBPMNModelModal = ({ isOpen, onClose, onAddModel, projectId }) => {
     const [newModelName, setNewModelName] = useState('');
@@ -12,23 +13,14 @@ const AddBPMNModelModal = ({ isOpen, onClose, onAddModel, projectId }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="modal">
-            <div className="modal-window">
-                <div className="modal-title">
-                    Add model
-                    <button className="modal-close button-danger" onClick={onClose}>Close</button>
-                </div>
-                <div className="modal-content">
-                    <input
-                        type="text"
-                        value={newModelName}
-                        onChange={(e) => setNewModelName(e.target.value)}
-                        placeholder="New model Name"
-                    />
-                    <button onClick={handleAddModel}>Add</button>
-                </div>
-            </div>
-        </div>
+        <Modal modalHeading="Add model" primaryButtonText="Add model" secondaryButtonText="Cancel" open={isOpen} onRequestClose={onClose} onRequestSubmit={handleAddModel}>
+            <TextInput data-modal-primary-focus id="text-input-1" labelText="Model name" placeholder="New model"
+                       value={newModelName}
+                       onChange={(e) => setNewModelName(e.target.value)}
+                       style={{
+                           marginBottom: '1rem'
+                       }} />
+        </Modal>
     );
 };
 

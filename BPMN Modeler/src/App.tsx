@@ -8,6 +8,8 @@ import SaveModal from "./components/SaveModal.tsx";
 import LogoutModal from "./components/LogoutModal.tsx";
 import DMNModelerComponent from "./components/DmnModeler.tsx";
 import toastr from 'toastr';
+import {Button, Tile} from '@carbon/react';
+import {DecisionTree, Logout, Save, Login} from '@carbon/react/icons';
 
 function App() {
     const [user, setUser] = useState(null);
@@ -65,8 +67,10 @@ function App() {
     };
 
     const handleOpenProject = (project) => {
-        setProject(project);
-        setViewMode('PROJECT');
+        if (project){
+            setProject(project);
+            setViewMode('PROJECT');
+        }
     };
 
     const handleOpenModel = (project, model) => {
@@ -133,16 +137,22 @@ function App() {
     }
 
     const handleOnSaveLogout = (model) => {
-        saveBPMNModel(model);
+        if (model.type === 'bpmn') {
+            saveBPMNModel(model);
+        } else if (model.type === 'dmn') {
+            saveDMNodel(model);
+        }
         setModel({});
-        setViewMode('PROJECT');
+        setProject({});
+        setViewMode('ALL_PROJECTS');
         logout();
         setIsLogoutModalOpen(false);
     }
 
     const handleOnDiscardLogout = () => {
         setModel({});
-        setViewMode('PROJECT');
+        setProject({});
+        setViewMode('ALL_PROJECTS');
         logout();
         setIsLogoutModalOpen(false);
     }
@@ -170,9 +180,9 @@ function App() {
               onClose={handleCloseLogout}
               changes={changes}
           />}
-          <div className="header">
+          <Tile className="header">
               <div className="header-logo">
-                  BPMN Modeler
+                  <DecisionTree className="project-name-icon"/> Designer
               </div>
               <div className="header-nav">
                   {user && <div className="nav-projects-folder" onClick={onProjectsFolderClick}>
@@ -193,37 +203,43 @@ function App() {
               </div>
               <div className="header-user">
                   {!user &&
-                      <button onClick={signInWithGoogle}>Sign in with Google</button>
+                      <Button size="sm" onClick={signInWithGoogle}><Login className="project-name-icon"/>Sign in with Google</Button>
                   }
                   {user &&
                       <div className="header-user-signed-in">
-                          Welcome, {user.displayName} <button className="button-danger" onClick={onLogoutClick}>Logout</button>
+                          <img src={user.photoURL} alt="user-avatar" style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '16px'
+                          }}/>
+                          Welcome, {user.displayName} <Button kind="danger" size="sm" onClick={onLogoutClick}><Logout
+                          className="project-name-icon"/>Logout</Button>
                       </div>
                   }
               </div>
-          </div>
+          </Tile>
           {viewMode === 'BPMN' && changes &&
-              <button onClick={() => onSaveModelClick(model)} className="save-button">
-                  Save Model
-              </button>}
+              <Button onClick={() => onSaveModelClick(model)} className="save-button">
+                  <Save className="project-name-icon"/> Save Model
+              </Button>}
           {viewMode === 'DMN' &&
-              <button onClick={() => onSaveDMNClick(model)} className="save-button">
+              <Button onClick={() => onSaveDMNClick(model)} className="save-button">
                   Save Model
-              </button>}
+              </Button>}
           {viewMode === 'BPMN' && user && <BPMNModelerComponent xml={model.xmlData} viewPosition={viewPosition} onModelChange={handleModelChange} onViewPositionChange={handleViewPositionChange}/>}
           {viewMode === 'DMN' && user && <DMNModelerComponent xml={model.xmlData} viewPosition={viewPosition} onDMNChange={handleModelChange} onViewPositionChange={handleViewPositionChange}/>}
           {(viewMode !== 'BPMN' && viewMode !== 'DMN') && user && <ProjectList user={user} viewMode={viewMode} currentProject={project} onOpenProject={handleOpenProject} onNavigateHome={handleNavigateHome} onOpenModel={handleOpenModel}/>}
           {!user && <div className="welcome-wrapper">
               <div className="welcome-title">
-                  Welcome to the BPMN Modeler!
+                  Welcome to Designer!
               </div>
               <div className="welcome-subtitle">
-                  Sign in to start modeling
+                  the open-source BPMN & DMN modeling collaboration tool
               </div>
           </div>}
-          {(viewMode !== 'BPMN' && viewMode !== 'DMN') && <div className="footer">
-              Version: 0.1.3 - powered by <a href="https://www.valtimo.nl" target="valtimo">Valtimo</a>
-          </div>}
+          {(viewMode !== 'BPMN' && viewMode !== 'DMN') && <Tile className="footer">
+              Version: 0.2.0 - powered by <a href="https://www.valtimo.nl" target="valtimo">Valtimo</a>
+          </Tile>}
       </div>
     )
 }

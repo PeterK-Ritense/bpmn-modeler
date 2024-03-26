@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import {Modal, TextInput} from "@carbon/react";
 
 const AddProjectModal = ({ isOpen, onClose, onAddProject }) => {
     const [newProjectName, setNewProjectName] = useState('');
@@ -12,23 +13,14 @@ const AddProjectModal = ({ isOpen, onClose, onAddProject }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="modal">
-            <div className="modal-window">
-                <div className="modal-title">
-                    Add Project
-                    <button className="modal-close button-danger" onClick={onClose}>Close</button>
-                </div>
-                <div className="modal-content">
-                    <input
-                        type="text"
-                        value={newProjectName}
-                        onChange={(e) => setNewProjectName(e.target.value)}
-                        placeholder="New Project Name"
-                    />
-                    <button onClick={handleAddProject}>Add Project</button>
-                </div>
-            </div>
-        </div>
+        <Modal modalHeading="Add Project" modalLabel="Projects" primaryButtonText="Add project" secondaryButtonText="Cancel" open={isOpen} onRequestClose={onClose} onRequestSubmit={handleAddProject}>
+            <TextInput data-modal-primary-focus id="text-input-1" labelText="Project name" placeholder="New Project"
+                       value={newProjectName}
+                       onChange={(e) => setNewProjectName(e.target.value)}
+                       style={{
+                marginBottom: '1rem'
+            }} />
+        </Modal>
     );
 };
 

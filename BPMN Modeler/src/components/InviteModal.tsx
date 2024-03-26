@@ -1,6 +1,7 @@
 import React, {useState} from "react";
 import {getDatabase, push, ref, set} from "firebase/database";
 import toastr from 'toastr';
+import {Modal, TextInput} from "@carbon/react";
 
 const InviteModal = ({ isOpen, onClose, projectId, userId }) => {
     const [inviteEmail, setInviteEmail] = useState('');
@@ -9,7 +10,6 @@ const InviteModal = ({ isOpen, onClose, projectId, userId }) => {
         const db = getDatabase();
         const newInvitationRef = push(ref(db, 'invitations'));
 
-        console.log('invite: ', projectId);
         set(newInvitationRef, {
             projectId: projectId,
             invitedEmail: inviteEmail,
@@ -28,23 +28,14 @@ const InviteModal = ({ isOpen, onClose, projectId, userId }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="modal">
-            <div className="modal-window">
-                <div className="modal-title">
-                    Invite member
-                    <button className="modal-close button-danger" onClick={onClose}>Close</button>
-                </div>
-                <div className="modal-content">
-                    <input
-                        type="email"
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        placeholder="Enter email address"
-                    />
-                    <button onClick={handleInvite}>Invite to Project</button>
-                </div>
-            </div>
-        </div>
+        <Modal modalHeading="Invite Member" primaryButtonText="Invite member" secondaryButtonText="Cancel" open={isOpen} onRequestClose={onClose} onRequestSubmit={handleInvite}>
+            <TextInput data-modal-primary-focus id="text-input-1" labelText="Email address (Google account)" placeholder="user@example.com"
+                       value={inviteEmail}
+                       onChange={(e) => setInviteEmail(e.target.value)}
+                       style={{
+                           marginBottom: '1rem'
+                       }} />
+        </Modal>
     );
 };
 

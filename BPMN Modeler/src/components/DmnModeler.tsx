@@ -20,8 +20,6 @@ const DMNModelerComponent = ({ xml, viewPosition, onDMNChange, onViewPositionCha
                 bindTo: window,
             },
         });
-        console.log('modeler: ', dmnModeler);
-        console.log('xml: ', xml);
         dmnModeler.importXML(xml).then(() => {
             if (viewPosition) {
                 setViewPosition(dmnModeler);
@@ -49,7 +47,6 @@ const DMNModelerComponent = ({ xml, viewPosition, onDMNChange, onViewPositionCha
         });
 
         dmnModeler.on('commandStack.changed', async () => {
-            console.log('change!')
             try {
                 const { xml } = await dmnModeler.saveXML({ format: true });
                 onDMNChange(xml);

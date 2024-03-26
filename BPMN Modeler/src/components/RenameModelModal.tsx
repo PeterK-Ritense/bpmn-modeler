@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import {Modal, TextInput} from "@carbon/react";
 
 const RenameModelModal = ({ isOpen, onClose, onRenameModel, currentName }) => {
     const [newModelName, setNewModelName] = useState('');
@@ -12,23 +13,14 @@ const RenameModelModal = ({ isOpen, onClose, onRenameModel, currentName }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="modal">
-            <div className="modal-window">
-                <div className="modal-title">
-                    Rename Model
-                    <button className="modal-close button-danger" onClick={onClose}>Close</button>
-                </div>
-                <div className="modal-content">
-                    <input
-                        type="text"
-                        value={newModelName !== '' ? newModelName : currentName}
-                        onChange={(e) => setNewModelName(e.target.value)}
-                        placeholder="New Project Name"
-                    />
-                    <button onClick={handleRenameModel}>Rename Model</button>
-                </div>
-            </div>
-        </div>
+        <Modal modalHeading="Rename Model" primaryButtonText="Rename model" secondaryButtonText="Cancel" open={isOpen} onRequestClose={onClose} onRequestSubmit={handleRenameModel}>
+            <TextInput data-modal-primary-focus id="text-input-1" labelText="Model name" placeholder="New model"
+                       value={newModelName !== '' ? newModelName : currentName}
+                       onChange={(e) => setNewModelName(e.target.value)}
+                       style={{
+                           marginBottom: '1rem'
+                       }} />
+        </Modal>
     );
 };
 

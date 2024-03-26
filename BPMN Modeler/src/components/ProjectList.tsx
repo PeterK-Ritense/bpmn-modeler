@@ -1,4 +1,4 @@
-import React, {useState, useEffect, ChangeEvent, useRef} from 'react';
+import React, {useState, useEffect, ChangeEvent, useRef, useMemo} from 'react';
 import { get, getDatabase, ref, push, set, remove, query, orderByChild, equalTo, update } from "firebase/database";
 import InviteModal from './InviteModal.tsx'
 import AddBPMNModelModal from './AddBPMNModelModal.tsx';
@@ -7,6 +7,23 @@ import ConfirmationModal from "./ConfirmationModal.tsx";
 import toastr from 'toastr';
 import RenameProjectModal from "./RenameProjectModal.tsx";
 import RenameModelModal from "./RenameModelModal.tsx";
+import {
+    Button,
+    DataTable, Heading,
+    Link,
+    OverflowMenu,
+    OverflowMenuItem,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableHeader,
+    TableRow,
+    TableToolbar,
+    TableToolbarContent, Tile
+} from "@carbon/react";
+import { DecisionTree, TableSplit, Upload, UserFollow, Add } from '@carbon/react/icons';
 
 const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHome, onOpenProject }) => {
     const [projects, setProjects] = useState([]);
@@ -22,13 +39,46 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
     const [selectedModel, setSelectedModel] = useState({});
     const [confirmModalContent, setConfirmModalContent] = useState({ message: '', onConfirm: () => {} });
 
+    const [sortDirection, setSortDirection] = useState('NONE');
+    const [sortDirectionModels, setSortDirectionModels] = useState('NONE');
+    const [sortHeader, setSortHeader] = useState('');
+    const [sortHeaderModels, setSortHeaderModels] = useState('');
+
     const fileInputRef = useRef(null);
+
+    const headersAllProjects = [
+        {
+            key: 'project',
+            header: 'Project',
+        },
+        {
+            key: 'models',
+            header: 'Models',
+        },
+        ,
+        {
+            key: 'lastChanged',
+            header: 'Last changed',
+        },
+        {
+            key: 'members',
+            header: 'Members',
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+        },
+    ];
 
     // Fetch projects when component mounts or userId changes
     useEffect(() => {
         fetchUserProjects(user.uid);
         fetchInvites();
     }, [user.uid]);
+    
+    useEffect(() => {
+        onOpenProject(projects.filter((project) => project.id === currentProject.id)[0]);
+    }, [projects])
 
     const handleAddProject = (newProjectName) => {
         if (newProjectName) {
@@ -197,7 +247,6 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
 
     const handleFileChange = (event: ChangeEvent<HTMLInputElement>, projectId: string) => {
         const file = event.target.files?.[0];
-        console.log('file: ', file);
 
         const reader = new FileReader();
         reader.onload = (e: ProgressEvent<FileReader>) => {
@@ -207,7 +256,6 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
             } else if (file.name.endsWith('.dmn')) {
                 handleUploadDMNModel(projectId, text as string);
             }
-            console.log('xml: ', text as string);
         };
         reader.readAsText(file);
     };
@@ -349,7 +397,7 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
                             id: modelId,
                             ...bpmnModelsData[modelId]
                         }));
-                    console.log('projectModels: ', projectModels);
+
                     const projectMembers = Object.keys(project.members).map(memberId => ({
                         id: memberId,
                         role: project.members[memberId],
@@ -365,7 +413,6 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
                         members: projectMembers
                     });
                 }
-                console.log('project: ', userProjects);
             });
 
             setProjects(userProjects);
@@ -530,217 +577,388 @@ const ProjectList = ({ user, viewMode, currentProject, onOpenModel, onNavigateHo
         return membersString;
     }
 
+    const renderMembersCell = (members) => {
+        const maxVisibleMembers = 4;
+        const extraMembersCount = members.length - maxVisibleMembers;
+
+        return (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+                {members.slice(0, maxVisibleMembers).map(member => (
+                    <div key={member.id} title={`${member.displayName} (${member.role})`} style={{ marginRight: '8px' }}>
+                        <img
+                            src={member.imageUrl}
+                            alt="user-avatar"
+                            style={{ width: '30px', height: '30px', borderRadius: '50%' }}
+                        />
+                    </div>
+                ))}
+                {extraMembersCount > 0 && (
+                    <div title={`+${extraMembersCount} more`} style={{ marginLeft: '8px' }}>
+                        +{extraMembersCount}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const sortRows = (rows, header, direction) => {
+        return rows.sort((a, b) => {
+            if (direction === 'NONE') return 0;
+            if (direction === 'DESC') {
+                return a[header] < b[header] ? -1 : 1;
+            }
+            return a[header] > b[header] ? -1 : 1;
+        });
+    };
+
     return (
         <div className="projects-wrapper">
             {invitations.filter((invite) => invite.status === 'Pending').length > 0 &&
                 <div className="projects-invitations">
-                    <div className="projects-invitations-title">
-                        <h2>You have {invitations.filter((item) => item.status === 'Pending').length > 1 ? 'invites' : 'an invite'}!</h2>
-                    </div>
+                    <Heading className="projects-invitations-title">
+                        You have {invitations.filter((item) => item.status === 'Pending').length > 1 ? 'invites' : 'an invite'}!
+                    </Heading><br/><br/>
                     {invitations.filter((item) => item.status === 'Pending').map((invitation) => (
-                        <div key={invitation.id} className="projects-invitations-invite">
-                            <div className="projects-invitations-invite-status">
-                                {invitation.status}
-                            </div>
-                            <div className="projects-invitations-invite-text">
-                                Invite for the
-                                project <strong>{invitation.projectName}</strong> from <strong>{invitation.senderName}</strong>
+                        <Tile key={invitation.id} className="invites-tile">
+                            <div>
+                                Invite for the project <strong>{invitation.projectName}</strong> from <strong>{invitation.senderName}</strong>
                             </div>
                             {invitation.status === 'Pending' && <div className="projects-invitations-invite-buttons">
-                                <button onClick={() => handleAccept(invitation)}>Accept Invite</button>
-                                <button className="button-danger" onClick={() => handleDelete(invitation)}>Decline
+                                <Button onClick={() => handleAccept(invitation)}>Accept Invite</Button>
+                                <Button kind="danger" onClick={() => handleDelete(invitation)}>Decline
                                     Invite
-                                </button>
+                                </Button>
                             </div>}
-                        </div>
+                        </Tile>
                     ))}
                 </div>}
-            {viewMode === 'ALL_PROJECTS' && <div className="projects-list">
-                <div className="projects-title">
-                    <h3>My Projects</h3>
-                    <button onClick={() => setIsAddProjectModalOpen(true)}>Add Project</button>
-                </div>
-                {projects.length === 0 && <div className="no-projects">
-                    Click the 'Add Project' button to create your first project!
-                </div>}
-                {projects.map((project) => (
-                    <div key={project.id} className="projects-project-row" onClick={() => onOpenProject(project)}>
-                        <div className="projects-project-title">
-                            <div className="projects-project-title-text">
-                                <h3>{project.name}</h3>
-                            </div>
-                            <div className="projects-project-diagrams">
-                                {project.models.length} {project.models.length === 1 ? 'diagram' : 'diagrams'}
-                            </div>
-                            <div className="projects-project-date">
-                                {convertDateString(project.updatedAt)}
-                            </div>
-                            <div className="projects-members-small">
-                                {project.members.length <= 5
-                                    ? project.members.map((member) => (
-                                        <div key={project.id + member.id} className="projects-member-small">
-                                            <div className="projects-members-avatar"><img src={member.imageUrl}
-                                                                                          alt="user-avatar"
-                                                                                          title={`${member.displayName} (${member.role})`}/>
-                                            </div>
-                                        </div>
-                                    ))
-                                    : [...project.members.slice(0, 4), {
-                                        id: 'extra',
-                                        displayName: `+${project.members.length - 4}`,
-                                        imageUrl: '/path/to/placeholder/image',
-                                        role: ''
-                                    }].map((member, index) => (
-                                        index < 4 ? (
-                                            <div key={project.id + member.id} className="projects-member-small">
-                                                <div className="projects-members-avatar"><img src={member.imageUrl}
-                                                                                              alt="user-avatar"
-                                                                                              title={`${member.displayName} (${member.role})`}/>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div key={project.id + member.id} className="projects-member-small">
-                                                <div className="projects-members-extra"
-                                                     title={getExtraMembersAsString(project.members)}>+{project.members.length - 4}</div>
-                                            </div>
-                                        )
-                                    ))
-                                }
-                            </div>
-                            <div className="projects-project-actions">
-                                {project.ownerId === user.uid && (
-                                    <button className="button-danger" onClick={() => openConfirmModal(
-                                        `Are you sure you want to delete project '${project.name}'?`,
-                                        () => onDeleteProject(project.id)
-                                    )}>Delete Project</button>
-                                )}
-                            </div>
+            <div className="table-wrapper">
+                {viewMode === 'ALL_PROJECTS' && (
+                    <>
+                        <div className="project-heading">
+                            <Heading>
+                                My Projects
+                            </Heading>
                         </div>
-                    </div>
-                ))}
-            </div>}
+                        <br/><br/>
+                        <DataTable
+                            rows={sortRows([...projects], sortHeader, sortDirection).map(project => ({
+                                id: project.id,
+                                name: project.name,
+                                diagrams: project.models.length,
+                                date: convertDateString(project.updatedAt),
+                                members: project.members,
+                                actions: project.ownerId === user.uid ? project.id : undefined, // Assuming you have a user object with uid
+                            }))}
+                            headers={[
+                                {key: 'name', header: 'Project Name'},
+                                {key: 'diagrams', header: 'Models'},
+                                {key: 'date', header: 'Last Changed'},
+                                {key: 'members', header: 'Members'},
+                                {key: 'actions', header: 'Options'},
+                            ]}
+                            render={({rows, headers, getHeaderProps, getRowProps}) => (
+                                <TableContainer title="">
+                                    <TableToolbar>
+                                        <TableToolbarContent>
+                                            <Button onClick={() => setIsAddProjectModalOpen(true)}><Add className="project-name-icon"/> Add Project</Button>
+                                        </TableToolbarContent>
+                                    </TableToolbar>
+                                    <Table>
+                                        <TableHead>
+                                            <TableRow>
+                                                {headers.map(header => (
+                                                    <TableHeader
+                                                        {...getHeaderProps({
+                                                            header,
+                                                            isSortable: true,
+                                                            onClick: () => {
+                                                                const newDirection = sortDirection === 'ASC' ? 'DESC' : 'ASC';
+                                                                setSortHeader(header.key);
+                                                                setSortDirection(sortDirection === 'NONE' || header.key !== sortHeader ? 'ASC' : newDirection);
+                                                            },
+                                                        })}
+                                                    >
+                                                        {header.header}
+                                                    </TableHeader>
+                                                ))}
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {rows.map(row => (
+                                                <TableRow {...getRowProps({row})}
+                                                          onClick={() => onOpenProject(projects.filter((project) => project.id === row.id)[0])}>
+                                                    {row.cells.map(cell => (
+                                                        <TableCell key={cell.id}>
+                                                            {cell.info.header === 'members' ? (
+                                                                renderMembersCell(cell.value) // Use the rendering function for the members cell
+                                                            ) : cell.info.header === 'actions' && cell.value ? (
+                                                                <OverflowMenu flipped>
+                                                                    <OverflowMenuItem
+                                                                        itemText="Delete Project"
+                                                                        isDelete
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation(); // Prevent triggering row onClick
+                                                                            openConfirmModal(
+                                                                                `Are you sure you want to delete project '${row.cells[0].value}'?`,
+                                                                                () => onDeleteProject(cell.value)
+                                                                            );
+                                                                        }}
+                                                                    />
+                                                                    {/* Add more actions here as <OverflowMenuItem> */}
+                                                                </OverflowMenu>
+                                                            ) : (
+                                                                cell.value
+                                                            )}
+                                                        </TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            )}
+                        />
+                    </>
+                )}
+                {viewMode === 'PROJECT' && currentProject &&
+                    <>
+                        <div className="project-heading">
+                        <Heading>
+                                {currentProject.name}
+                            </Heading>
+                            {currentProject.ownerId === user.uid && (
+                                <div>
+                                    <OverflowMenu flipped>
+                                        <OverflowMenuItem
+                                            itemText="Rename Project"
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent triggering row onClick
+                                                setIsRenameProjectModalOpen(true);
+                                            }}
+                                        />
+                                        <OverflowMenuItem
+                                            itemText="Delete Project"
+                                            isDelete
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent triggering row onClick
+                                                openConfirmModal(
+                                                    `Are you sure you want to delete project '${currentProject.name}'?`,
+                                                    () => onDeleteProject(currentProject.id)
+                                                );
+                                            }}
+                                        />
+                                    </OverflowMenu>
+                                </div>
+                            )}
+                        </div>
+                        <br/><br/>
+                        <div className="project-wrapper">
+                            <div className="project-models-wrapper">
+                                <DataTable
+                                    rows={sortRows([...currentProject.models], sortHeaderModels, sortDirectionModels).map(model => ({
+                                        id: model.id,
+                                        name: model.name,
+                                        type: model.type,
+                                        owner: currentProject.members.find(member => member.id === model.ownerId)?.displayName || 'Unknown',
+                                        date: convertDateString(model.updatedAt),
+                                    }))}
+                                    headers={[
+                                        {key: 'name', header: 'Model Name'},
+                                        {key: 'type', header: 'Type'},
+                                        {key: 'owner', header: 'Owner'},
+                                        {key: 'date', header: 'Last Changed'},
+                                        {key: 'actions', header: 'Options'},
+                                    ]}
+                                    render={({rows, headers, getHeaderProps}) => (
+                                        <TableContainer title="Models">
+                                            <TableToolbar>
+                                                <TableToolbarContent>
+                                                    <input style={{display: 'none'}} type="file" accept=".bpmn, .dmn"
+                                                           ref={fileInputRef}
+                                                           onChange={(event) => handleFileChange(event, currentProject.id)}/>
+                                                    <Button onClick={handleUploadButtonClick}><Upload
+                                                        className="project-name-icon"/> Import</Button>
+                                                    <Button onClick={() => {
+                                                        setIsAddModelModalOpen(true);
+                                                        setSelectedProjectId(currentProject.id);
+                                                    }}><DecisionTree className="project-name-icon"/> Add BPMN
+                                                    </Button>
+                                                    <Button onClick={() => {
+                                                        setIsAddDMNModalOpen(true);
+                                                        setSelectedProjectId(currentProject.id);
+                                                    }}><TableSplit className="project-name-icon"/> Add DMN
+                                                    </Button>
+                                                </TableToolbarContent>
+                                            </TableToolbar>
+                                            <Table>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        {headers.map(header => (
+                                                            <TableHeader key={header.key} {...getHeaderProps({
+                                                                header,
+                                                                isSortable: true,
+                                                                onClick: () => {
+                                                                    const newDirection = sortDirection === 'ASC' ? 'DESC' : 'ASC';
+                                                                    setSortHeaderModels(header.key);
+                                                                    setSortDirectionModels(sortDirection === 'NONE' || header.key !== sortHeader ? 'ASC' : newDirection);
+                                                                },
+                                                            })}>
+                                                                {header.header}
+                                                            </TableHeader>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {rows.map(row => {
+                                                        const model = currentProject.models.filter((model) => model.id === row.id)[0];
+                                                        return (
+                                                            <TableRow key={row.id}
+                                                                      onClick={() => onOpenModel(currentProject, model)}>
+                                                                {row.cells.map((cell) => (
+                                                                    <TableCell key={cell.id}>
+                                                                        {cell.info.header === 'actions' ? (
+                                                                            <OverflowMenu flipped>
+                                                                                <OverflowMenuItem
+                                                                                    itemText="Download"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        downloadXmlAsBpmn(model);
+                                                                                    }}
+                                                                                />
+                                                                                <OverflowMenuItem
+                                                                                    itemText="Duplicate"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleDuplicateModel(model);
+                                                                                    }}
+                                                                                />
+                                                                                {(model.ownerId === user.uid || currentProject.ownerId === user.uid) &&
+                                                                                    <OverflowMenuItem
+                                                                                        itemText="Rename"
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            onRenameModel(model);
+                                                                                        }}
+                                                                                    />}
+                                                                                {(model.ownerId === user.uid || currentProject.ownerId === user.uid) &&
+                                                                                    <OverflowMenuItem
+                                                                                        itemText="Delete Model"
+                                                                                        isDelete
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation(); // Prevent triggering row onClick
+                                                                                            openConfirmModal(
+                                                                                                `Are you sure you want to delete project '${row.cells[0].value}'?`,
+                                                                                                () => onDeleteModel(model.id)
+                                                                                            );
+                                                                                        }}
+                                                                                    />}
+                                                                            </OverflowMenu>
+                                                                        ) : cell.info.header === 'name' ? (
+                                                                            <div className="project-name-with-icon">
+                                                                                {model.type === 'bpmn' ? <DecisionTree
+                                                                                        className="project-name-icon"/> :
+                                                                                    <TableSplit
+                                                                                        className="project-name-icon"/>} {cell.value}
+                                                                            </div>
 
-            {viewMode === 'PROJECT' && <div className="projects-list">
-                {projects.filter((project) => project.id === currentProject.id).map((project) => (
-                    <div key={project.id} className="projects-project">
-                        <div className="projects-project-header-title">
-                            <h3>{project.name}</h3>
-                            <div>
-                                {project.ownerId === user.uid && (
-                                    <div>
-                                        <button onClick={() => setIsRenameProjectModalOpen(true)}>Rename Project</button>
-                                        <button className="button-danger" onClick={() => openConfirmModal(
-                                            `Are you sure you want to delete project '${project.name}'?`,
-                                            () => onDeleteProject(project.id)
-                                        )}>Delete Project</button>
-                                    </div>
-                                )}
+                                                                        ) : (
+                                                                            cell.value
+                                                                        )}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        )
+                                                    })}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    )}
+                                />
+                            </div>
+                            <div className="project-members-wrapper">
+                                <DataTable
+                                    rows={currentProject.members.map((member) => ({
+                                        id: member.id,
+                                        avatar: member.imageUrl,
+                                        name: <div
+                                            title={`${member.displayName} (${member.role}) ${member.email}`}>{member.displayName}</div>,
+                                        email: member.email,
+                                        role: member.role,
+                                        actions: member,
+                                    }))}
+                                    headers={[
+                                        {key: 'avatar', header: ''}, // For avatar images
+                                        {key: 'name', header: 'Name'},
+                                        {key: 'role', header: 'Role'},
+                                        {key: 'actions', header: 'Options'}, // For action buttons
+                                    ]}
+                                    render={({rows, headers, getHeaderProps, getRowProps}) => (
+                                        <TableContainer title="Members">
+                                            <TableToolbar>
+                                                <TableToolbarContent>
+                                                    <Button onClick={() => {
+                                                        setIsInviteModalOpen(true);
+                                                        setSelectedProjectId(currentProject.id);
+                                                    }}><UserFollow className="project-name-icon"/> Invite Member
+                                                    </Button>
+                                                </TableToolbarContent>
+                                            </TableToolbar>
+                                            <Table>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        {headers.map((header) => (
+                                                            <TableHeader {...getHeaderProps({header})}>
+                                                                {header.header}
+                                                            </TableHeader>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {rows.map((row) => (
+                                                        <TableRow key={row.id} {...getRowProps({row})}>
+                                                            {row.cells.map((cell) => (
+                                                                <TableCell key={cell.id}>
+                                                                    {cell.info.header === 'avatar' ? (
+                                                                        <img src={cell.value} alt="user-avatar" style={{
+                                                                            width: '32px',
+                                                                            height: '32px',
+                                                                            borderRadius: '16px'
+                                                                        }}/>
+                                                                    ) : cell.info.header === 'actions' && currentProject.ownerId === user.uid && cell.value.id !== user.uid ? (
+                                                                        <OverflowMenu flipped>
+                                                                            <OverflowMenuItem
+                                                                                itemText="Remove member"
+                                                                                isDelete
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation(); // Prevent triggering row onClick
+                                                                                    openConfirmModal(
+                                                                                        `Are you sure you want to remove ${cell.value.displayName} from this project?`,
+                                                                                        () => handleRemoveMember(currentProject.id, cell.value.id)
+                                                                                    );
+                                                                                }}
+                                                                            />
+                                                                        </OverflowMenu>
+                                                                    ) : cell.info.header === 'name' ? (
+                                                                        cell.value
+                                                                    ) : cell.info.header === 'role' ? (
+                                                                        cell.value
+                                                                    ) : (
+                                                                        <></>
+                                                                    )}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    )}
+                                />
                             </div>
                         </div>
-                        <div className="projects-overview">
-                            <div className="projects-overview-models">
-                                <div className="projects-models-title">
-                                    <h4>Models</h4>
-                                    <div className="projects-models-buttons">
-                                        <input style={{display: 'none'}} type="file" accept=".bpmn, .dmn" ref={fileInputRef}
-                                               onChange={(event) => handleFileChange(event, project.id)}/>
-                                        <button onClick={handleUploadButtonClick}>Import</button>
-                                        <button onClick={() => {
-                                            setIsAddModelModalOpen(true);
-                                            setSelectedProjectId(project.id);
-                                        }}>Add BPMN
-                                        </button>
-                                        <button onClick={() => {
-                                            setIsAddDMNModalOpen(true);
-                                            setSelectedProjectId(project.id);
-                                        }}>Add DMN
-                                        </button>
-                                    </div>
-                                </div>
-                                {project.models.length === 0 && <div className="projects-model">
-                                    Add a new model and start modeling!
-                                </div>}
-                                {project.models.map((model) => {
-                                    return <div className="projects-model" key={model.id} onClick={() => onOpenModel(project, model)}>
-                                        <div
-                                             className="projects-model-title">
-                                            {model.name}
-                                        </div>
-                                        <div className="projects-model-type">
-                                            {model.type}
-                                        </div>
-                                        <div className="projects-model-owner">
-                                            {project.members.filter((member) => member.id == model.ownerId)[0]?.displayName || 's'}
-                                        </div>
-                                        <div className="projects-model-date">
-                                            {convertDateString(model.updatedAt)}
-                                        </div>
-                                        <div className="projects-model-buttons">
-                                            <div>
-                                                <button onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    downloadXmlAsBpmn(model);
-                                                }}>
-                                                    Download
-                                                </button>
-                                                <button onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDuplicateModel(model);
-                                                }}>
-                                                    Duplicate
-                                                </button>
-                                                {(model.ownerId === user.uid || project.ownerId === user.uid) && (
-                                                    <>
-                                                        <button onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onRenameModel(model);
-                                                        }}>
-                                                            Rename
-                                                        </button>
-                                                        <button className="button-danger"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    openConfirmModal(
-                                                                    `Are you sure you want to delete model '${model.name}'?`,
-                                                                    () => onDeleteModel(model.id)
-                                                                    )
-                                                                }}>Delete
-                                                        </button>
-                                                    </>)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                })}
-                                </div>
-                                    <div className="projects-overview-members">
-                                <div className="projects-members-title">
-                                    <h4>Members</h4>
-                                    <button onClick={() => {
-                                        setIsInviteModalOpen(true);
-                                        setSelectedProjectId(project.id);
-                                    }}>Invite Member
-                                    </button>
-                                </div>
-                                {project.members.map((member) => (
-                                    <div key={project.id + member.id} className="projects-members" title={`${member.displayName} (${member.role}) ${member.email}`}>
-                                        <div className="projects-members-avatar"><img src={member.imageUrl} alt="user-avatar"/>
-                                        </div>
-                                        <div className="projects-members-name">{member.displayName}</div>
-                                        <div className="projects-members-role">{member.role}</div>
-                                        {project.ownerId === user.uid && member.id !== user.uid && (
-                                            <button className="projects-members-remove button-danger"
-                                                    onClick={() => openConfirmModal(
-                                                        `Are you sure you want to remove ${member.displayName} from this project?`,
-                                                        () => handleRemoveMember(project.id, member.id)
-                                                    )}>Remove Member</button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>}
+                    </>}
+            </div>
 
             <ConfirmationModal
                 isOpen={isConfirmModalOpen}

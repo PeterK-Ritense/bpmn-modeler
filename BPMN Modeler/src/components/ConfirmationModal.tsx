@@ -1,21 +1,14 @@
 import React from 'react';
+import {Modal, TextInput} from "@carbon/react";
 
 const ConfirmationModal = ({ isOpen, message, onClose, onConfirm }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="modal">
-            <div className="modal-window">
-                <div className="modal-title modal-danger">
-                    Delete
-                </div>
-                <div className="modal-content">
-                    <p>{message}</p>
-                    <button className="button-danger" onClick={onConfirm}>Confirm</button>
-                    <button onClick={onClose}>Cancel</button>
-                </div>
-            </div>
-        </div>
+        <Modal danger modalHeading="Delete" primaryButtonText="Confirm" secondaryButtonText="Cancel" open={isOpen}
+               onRequestClose={onClose} onRequestSubmit={onConfirm}>
+            <p>{message}</p>
+        </Modal>
     );
 };
 
