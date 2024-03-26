@@ -1,6 +1,6 @@
 import './App.css'
 import BPMNModelerComponent from "./components/BpmnModeler.tsx";
-import {auth, signInWithGoogle, logout, saveBPMNModel, saveDMNodel} from './config/firebase.js';
+import {auth, signInWithGoogle, logout, saveBPMNModel, saveDMNodel} from './config/.firebase.js';
 import { onAuthStateChanged } from 'firebase/auth';
 import React, { useEffect, useState } from "react";
 import ProjectList from "./components/ProjectList.tsx";
